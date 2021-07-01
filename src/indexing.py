@@ -1,4 +1,5 @@
 import faiss
+import torch
 from torch import nn
 from torchvision import models
 import torch.nn.functional as F
@@ -12,14 +13,15 @@ from dataset import CustomDataset, UnsplashIndexing
 
 
 def train_faiss(args):
+    device=torch.device("cpu")
     # Feature extractor
     fe = models.googlenet(pretrained=True, aux_logits=False)
     fe = nn.Sequential(*list(fe.children())[:-4])
-    fe = fe.eval().to(args.device)
+    fe = fe.eval().to(device)
 
     # Dataset
-    # dataset = CustomDataset(args.root)
-    dataset = UnsplashIndexing()
+    dataset = CustomDataset(args.root)
+    # dataset = UnsplashIndexing()
     loader = DataLoader(dataset=dataset, batch_size=args.bs, shuffle=False)
 
     model = faiss.IndexFlatL2(832 * 7 * 7)
@@ -28,8 +30,8 @@ def train_faiss(args):
     print('Building index')
     for batch in tqdm(loader):
         imgs = batch['img']
-        idx = batch['idx'].detach().cpu().numpy().astype(int)
-        features = fe(imgs.to(args.device)).flatten(1)
+        idx = batch['idx'].detach().cpu().numpy().astype('int64')
+        features = fe(imgs.to(device)).flatten(1)
         features = F.normalize(features)
         features = features.detach().cpu().numpy().astype(np.float32)
         model.add_with_ids(features, idx)
